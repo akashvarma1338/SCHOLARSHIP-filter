@@ -28,5 +28,5 @@ GOOGLE_DISCOVERY_URL = 'https://accounts.google.com/.well-known/openid-configura
 DEMO_MODE = os.environ.get('DEMO_MODE', 'True').lower() == 'true'
 
 # Use simulated authentication for development
-USE_SIMULATED_AUTH = os.environ.get('USE_SIMULATED_AUTH', 'True').lower() == 'true'
-USE_SIMULATED_AUTH_STUDENT = os.environ.get('USE_SIMULATED_AUTH_STUDENT', 'True').lower() == 'true'
+USE_SIMULATED_AUTH = os.environ.get('USE_SIMULATED_AUTH', 'False').lower() == 'true'
+USE_SIMULATED_AUTH_STUDENT = os.environ.get('USE_SIMULATED_AUTH_STUDENT', 'False').lower() == 'true'
