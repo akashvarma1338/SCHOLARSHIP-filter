@@ -1,0 +1,6 @@
+Name,Email,Course,Year,Marks,Income,Category,Backlogs,Full Time
+John Doe,john@example.com,B.Tech,2,85.5,200000,General,No,Yes
+Jane Smith,jane@example.com,B.Sc,3,92.0,150000,SC,No,Yes
+Mike Johnson,mike@example.com,MBA,1,78.5,300000,OBC,Yes,Yes
+Sarah Wilson,sarah@example.com,B.Com,2,88.0,180000,General,No,Yes
+Raj Patel,raj@example.com,M.Tech,1,95.0,120000,ST,No,Yes

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Processing - Admin Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar admin-navbar">
+        <div class="nav-brand">
+            <span class="logo">🎓</span>
+            <h1>Admin Panel - Bulk Processing</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/admin">Dashboard</a></li>
+            <li><a href="/admin/bulk-processing" class="active">Bulk Processing</a></li>
+            <li><a href="/admin/applications">Applications</a></li>
+        </ul>
+        <div class="user-menu">
+            <span style="color: rgba(255,255,255,0.9);">{{ session.admin_name }}</span>
+            <a href="{{ url_for('admin_logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container admin-container">
+        <!-- Header -->
+        <section class="admin-header">
+            <h2>📊 Bulk Student Processing</h2>
+            <p>Upload Excel or PDF files to process multiple students at once</p>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-section">
+            <div class="form-card">
+                <h3>📁 Upload Student Data</h3>
+                <p>Supported formats: Excel (.xlsx, .xls) and PDF files</p>
+                
+                <form id="bulkUploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="bulkFile">Select File</label>
+                        <input type="file" id="bulkFile" name="file" accept=".xlsx,.xls,.pdf" required>
+                        <small>Maximum file size: 10MB</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <span class="btn-text">📤 Upload & Process</span>
+                        <span class="btn-loader" style="display: none;">Processing...</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Expected Format Section -->
+        <section class="format-section">
+            <div class="form-card">
+                <h3>📋 Expected Excel Format</h3>
+                <p>Your Excel file should contain the following columns (column names are flexible):</p>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Accepted Names</th>
+                                <th>Data Type</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Name</td>
+                                <td>name, student_name, full_name</td>
+                                <td>Text</td>
+                                <td>John Doe</td>
+                            </tr>
+                            <tr>
+                                <td>Email</td>
+                                <td>email, email_address</td>
+                                <td>Email</td>
+                                <td>john@example.com</td>
+                            </tr>
+                            <tr>
+                                <td>Course</td>
+                                <td>course, program</td>
+                                <td>Text</td>
+                                <td>B.Tech</td>
+                            </tr>
+                            <tr>
+                                <td>Year</td>
+                                <td>year, year_of_study</td>
+                                <td>Number</td>
+                                <td>2</td>
+                            </tr>
+                            <tr>
+                                <td>Marks</td>
+                                <td>marks, percentage, marks_percentage</td>
+                                <td>Number</td>
+                                <td>85.5</td>
+                            </tr>
+                            <tr>
+                                <td>Income</td>
+                                <td>income, family_income</td>
+                                <td>Number</td>
+                                <td>200000</td>
+                            </tr>
+                            <tr>
+                                <td>Category</td>
+                                <td>category, caste</td>
+                                <td>Text</td>
+                                <td>General, SC, ST, OBC</td>
+                            </tr>
+                            <tr>
+                                <td>Backlogs</td>
+                                <td>backlogs, has_backlogs</td>
+                                <td>Yes/No or True/False</td>
+                                <td>No</td>
+                            </tr>
+                            <tr>
+                                <td>Full Time</td>
+                                <td>full_time, is_full_time</td>
+                                <td>Yes/No or True/False</td>
+                                <td>Yes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="form-card">
+                <h3>📊 Processing Results</h3>
+                <div id="resultsSummary"></div>
+                <div id="resultsTable"></div>
+                
+                <div class="action-buttons" style="margin-top: 20px;">
+                    <button onclick="downloadResults('excel')" class="btn btn-primary">
+                        📊 Download Excel Report (with detailed reasons)
+                    </button>
+                    <button onclick="downloadResults('pdf')" class="btn btn-secondary">
+                        📄 Download PDF Report (with detailed reasons)
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2024 Scholarship Eligibility Filter | Admin Panel</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        let currentResults = null;
+
+        document.getElementById('bulkUploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('bulkFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showAlert('Please select a file', 'error');
+                return;
+            }
+            
+            formData.append('file', file);
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const btnText = uploadBtn.querySelector('.btn-text');
+            const btnLoader = uploadBtn.querySelector('.btn-loader');
+            
+            // Show loading state
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'inline';
+            uploadBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/admin/bulk-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentResults = data.results;
+                    displayResults(data);
+                    showAlert(`Successfully processed ${data.total_students} students`, 'success');
+                } else {
+                    showAlert(data.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('An error occurred during upload', 'error');
+            } finally {
+                // Reset button state
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        function displayResults(data) {
+            const resultsSection = document.getElementById('resultsSection');
+            const summaryDiv = document.getElementById('resultsSummary');
+            const tableDiv = document.getElementById('resultsTable');
+            
+            // Show results section
+            resultsSection.style.display = 'block';
+            
+            // Display summary
+            summaryDiv.innerHTML = `
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-card total">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <h3>${data.total_students}</h3>
+                            <p>Total Students</p>
+                        </div>
+                    </div>
+                    <div class="stat-card eligible">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <h3>${data.eligible_students}</h3>
+                            <p>Eligible Students</p>
+                        </div>
+                    </div>
+                    <div class="stat-card not-eligible">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-content">
+                            <h3>${data.total_students - data.eligible_students}</h3>
+                            <p>Not Eligible</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Display detailed results table
+            let tableHTML = `
+                <div class="table-container">
+                    <table class="data-table detailed-results">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Course</th>
+                                <th>Marks</th>
+                                <th>Income</th>
+                                <th>Scholarship Results</th>
+                                <th>Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.results.forEach(result => {
+                const student = result.student_data;
+                const eligibleScholarships = result.scholarships.filter(s => s.eligible);
+                const ineligibleScholarships = result.scholarships.filter(s => !s.eligible);
+                const totalAmount = eligibleScholarships.reduce((sum, s) => sum + s.scholarship_amount, 0);
+                
+                // Build scholarship results with reasons
+                let scholarshipResults = '';
+                
+                // Show eligible scholarships first
+                if (eligibleScholarships.length > 0) {
+                    scholarshipResults += '<div class="eligible-scholarships">';
+                    eligibleScholarships.forEach(s => {
+                        scholarshipResults += `
+                            <div class="scholarship-result eligible">
+                                <span class="scholarship-name">✅ ${s.scholarship_name}</span>
+                                <span class="scholarship-amount">₹${s.scholarship_amount.toLocaleString()}</span>
+                                <div class="eligibility-reasons">
+                                    ${s.acceptance_reasons && s.acceptance_reasons.length > 0 
+                                        ? s.acceptance_reasons.slice(0, 2).map(reason => `<small class="reason eligible-reason">${reason}</small>`).join('')
+                                        : '<small class="reason eligible-reason">✓ All criteria met</small>'
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    });
+                    scholarshipResults += '</div>';
+                }
+                
+                // Show ineligible scholarships with reasons
+                if (ineligibleScholarships.length > 0) {
+                    scholarshipResults += '<div class="ineligible-scholarships">';
+                    ineligibleScholarships.forEach(s => {
+                        scholarshipResults += `
+                            <div class="scholarship-result ineligible">
+                                <span class="scholarship-name">❌ ${s.scholarship_name}</span>
+                                <div class="eligibility-reasons">
+                                    ${s.rejection_reasons && s.rejection_reasons.length > 0 
+                                        ? s.rejection_reasons.slice(0, 2).map(reason => `<small class="reason rejection-reason">${reason}</small>`).join('')
+                                        : '<small class="reason rejection-reason">Not eligible</small>'
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    });
+                    scholarshipResults += '</div>';
+                }
+                
+                if (!scholarshipResults) {
+                    scholarshipResults = '<span style="color: #6b7280;">No scholarships processed</span>';
+                }
+                
+                tableHTML += `
+                    <tr>
+                        <td>
+                            <strong>${student.name}</strong><br>
+                            <small>${student.email}</small>
+                        </td>
+                        <td>${student.course} (Year ${student.year_of_study})</td>
+                        <td>${student.marks_percentage}%</td>
+                        <td>₹${student.family_income.toLocaleString()}</td>
+                        <td class="scholarship-results-cell">
+                            ${scholarshipResults}
+                        </td>
+                        <td>
+                            ${totalAmount > 0 
+                                ? `<strong style="color: #10b981;">₹${totalAmount.toLocaleString()}</strong>`
+                                : '<span style="color: #6b7280;">₹0</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            tableDiv.innerHTML = tableHTML;
+        }
+
+        async function downloadResults(format) {
+            if (!currentResults) {
+                showAlert('No results to download', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/download-results', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        results: currentResults,
+                        format: format
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `scholarship_results_${new Date().toISOString().slice(0,10)}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    showAlert(`${format.toUpperCase()} report downloaded successfully`, 'success');
+                } else {
+                    const data = await response.json();
+                    showAlert(data.error || 'Download failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('An error occurred during download', 'error');
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const existingAlert = document.querySelector('.alert-toast');
+            if (existingAlert) existingAlert.remove();
+            
+            const alert = document.createElement('div');
+            alert.className = `alert-toast alert-${type}`;
+            alert.innerHTML = `
+                <span class="alert-icon">${type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️'}</span>
+                <span class="alert-message">${message}</span>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            alert.style.cssText = `
+                position: fixed; top: 20px; right: 20px; padding: 16px 20px;
+                background: ${type === 'error' ? '#fee2e2' : type === 'success' ? '#d1fae5' : '#dbeafe'};
+                color: ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : '#2563eb'};
+                border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                display: flex; align-items: center; gap: 10px; z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(alert);
+            setTimeout(() => { if (alert.parentElement) alert.remove(); }, 5000);
+        }
+    </script>
+
+    <style>
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .alert-close {
+            background: none; border: none; font-size: 1.5rem; cursor: pointer; opacity: 0.7;
+        }
+        .alert-close:hover { opacity: 1; }
+        .upload-section, .format-section, .results-section { margin-bottom: 2rem; }
+        
+        /* Enhanced scholarship results styling */
+        .scholarship-results-cell {
+            max-width: 400px;
+            padding: 8px;
+        }
+        
+        .scholarship-result {
+            margin-bottom: 8px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border-left: 3px solid;
+        }
+        
+        .scholarship-result.eligible {
+            background-color: #f0fdf4;
+            border-left-color: #10b981;
+        }
+        
+        .scholarship-result.ineligible {
+            background-color: #fef2f2;
+            border-left-color: #ef4444;
+        }
+        
+        .scholarship-name {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .scholarship-amount {
+            font-size: 0.85em;
+            color: #10b981;
+            font-weight: 500;
+        }
+        
+        .eligibility-reasons {
+            margin-top: 4px;
+        }
+        
+        .reason {
+            display: block;
+            font-size: 0.75em;
+            margin-bottom: 2px;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .eligible-reason {
+            color: #065f46;
+            background-color: #d1fae5;
+        }
+        
+        .rejection-reason {
+            color: #991b1b;
+            background-color: #fee2e2;
+        }
+        
+        .detailed-results .scholarship-results-cell {
+            vertical-align: top;
+        }
+        
+        .eligible-scholarships, .ineligible-scholarships {
+            margin-bottom: 8px;
+        }
+    </style>
+</body>
+</html>

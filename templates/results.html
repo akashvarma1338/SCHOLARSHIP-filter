@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - Scholarship Eligibility Filter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo">🎓</span>
+            <h1>Scholarship Eligibility Filter</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Apply</a></li>
+            <li><a href="/student/my-applications">My Applications</a></li>
+            <li><a href="/dashboard">Dashboard</a></li>
+        </ul>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {% if session.student_picture %}
+            <img src="{{ session.student_picture }}" alt="Profile" style="width: 35px; height: 35px; border-radius: 50%; border: 2px solid #4f46e5;">
+            {% endif %}
+            <span style="color: #374151; font-weight: 500;">{{ session.student_name }}</span>
+            <a href="{{ url_for('student_logout') }}" style="background: #fee2e2; color: #991b1b; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; text-decoration: none; font-weight: 500;">🚪 Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Results Header -->
+        <section class="results-header">
+            <h2>Eligibility Results</h2>
+            <div id="studentInfo" class="student-info-card">
+                <!-- Student info will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Summary Cards -->
+        <section class="summary-section">
+            <div class="summary-cards" id="summaryCards">
+                <!-- Summary will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Eligible Scholarships -->
+        <section class="results-section">
+            <h3 class="section-title eligible-title">✅ Eligible Scholarships</h3>
+            <div id="eligibleScholarships" class="results-list">
+                <!-- Eligible scholarships will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Not Eligible Scholarships -->
+        <section class="results-section">
+            <h3 class="section-title not-eligible-title">❌ Not Eligible Scholarships</h3>
+            <div id="notEligibleScholarships" class="results-list">
+                <!-- Not eligible scholarships will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Action Buttons -->
+        <section class="action-buttons">
+            <a href="/" class="btn btn-primary">Apply Again</a>
+            <a href="/dashboard" class="btn btn-secondary">View Dashboard</a>
+            <button onclick="window.print()" class="btn btn-outline">Print Results</button>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2024 Scholarship Eligibility Filter | Built with ❤️ for Education</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        const studentId = {{ student_id }};
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadResults();
+        });
+        
+        async function loadResults() {
+            try {
+                const response = await fetch(`/api/check-eligibility/${studentId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data.results);
+                } else {
+                    showError('Failed to load results');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error loading results. Please try again.');
+            }
+        }
+        
+        function displayResults(results) {
+            if (!results || !results.student) {
+                showError('Invalid results data');
+                return;
+            }
+            
+            const student = results.student;
+            document.getElementById('studentInfo').innerHTML = `
+                <div class="student-details">
+                    <h4>${student.name || 'Unknown'}</h4>
+                    <p><strong>Email:</strong> ${student.email || 'N/A'}</p>
+                    <p><strong>Course:</strong> ${student.course || 'N/A'} (Year ${student.year_of_study || 'N/A'})</p>
+                    <p><strong>Marks:</strong> ${student.marks_percentage || 0}%</p>
+                    <p><strong>Family Income:</strong> ₹${(student.family_income || 0).toLocaleString()}</p>
+                    <p><strong>Category:</strong> ${student.category || 'N/A'}</p>
+                </div>
+            `;
+            
+            document.getElementById('summaryCards').innerHTML = `
+                <div class="summary-card eligible-card">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-content">
+                        <h4>${results.eligible_count || 0}</h4>
+                        <p>Eligible</p>
+                    </div>
+                </div>
+                <div class="summary-card not-eligible-card">
+                    <div class="summary-icon">❌</div>
+                    <div class="summary-content">
+                        <h4>${results.ineligible_count || 0}</h4>
+                        <p>Not Eligible</p>
+                    </div>
+                </div>
+                <div class="summary-card amount-card">
+                    <div class="summary-icon">💰</div>
+                    <div class="summary-content">
+                        <h4>₹${(results.total_eligible_amount || 0).toLocaleString()}</h4>
+                        <p>Total Potential Amount</p>
+                    </div>
+                </div>
+            `;
+            
+            const eligibleContainer = document.getElementById('eligibleScholarships');
+            const eligibleScholarships = results.eligible_scholarships || [];
+            
+            if (eligibleScholarships.length === 0) {
+                eligibleContainer.innerHTML = `
+                    <div class="no-results">
+                        <p>😔 You are not eligible for any scholarships at this time.</p>
+                        <p>Please review the requirements and try again.</p>
+                    </div>
+                `;
+            } else {
+                eligibleContainer.innerHTML = eligibleScholarships.map(scholarship => {
+                    const acceptanceReasons = scholarship.acceptance_reasons || [];
+                    const reasonsHtml = acceptanceReasons.length > 0 
+                        ? `<div class="eligibility-reasons"><strong>Why you're eligible:</strong><ul>${acceptanceReasons.map(r => `<li>${r}</li>`).join('')}</ul></div>`
+                        : '';
+                    
+                    return `
+                        <div class="result-card eligible">
+                            <div class="result-header">
+                                <h4>${scholarship.scholarship_name}</h4>
+                                <span class="amount">₹${(scholarship.scholarship_amount || 0).toLocaleString()}</span>
+                            </div>
+                            <p class="description">${scholarship.scholarship_description || 'No description available'}</p>
+                            ${reasonsHtml}
+                            <div class="priority-score">
+                                <span class="label">Priority Score:</span>
+                                <span class="score">${scholarship.priority_score || 0}</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" style="width: ${Math.min(scholarship.priority_score || 0, 100)}%"></div>
+                                </div>
+                            </div>
+                            <div class="result-footer">
+                                <div class="status-badge eligible-badge">✓ Eligible</div>
+                                <span style="background: #d1fae5; color: #065f46; padding: 8px 16px; border-radius: 8px; font-weight: 500;">
+                                    ✅ Application Submitted
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            const notEligibleContainer = document.getElementById('notEligibleScholarships');
+            const ineligibleScholarships = results.ineligible_scholarships || [];
+            
+            if (ineligibleScholarships.length === 0) {
+                notEligibleContainer.innerHTML = `
+                    <div class="no-results success">
+                        <p>🎉 Great news! You are eligible for all available scholarships!</p>
+                    </div>
+                `;
+            } else {
+                notEligibleContainer.innerHTML = ineligibleScholarships.map(scholarship => {
+                    const rejectionReasons = scholarship.rejection_reasons || [];
+                    const reasonsHtml = rejectionReasons.length > 0 
+                        ? `<div class="rejection-reasons"><strong>Why you're not eligible:</strong><ul>${rejectionReasons.map(r => `<li>${r}</li>`).join('')}</ul></div>`
+                        : '<div class="rejection-reasons"><strong>Reason:</strong> Criteria not met</div>';
+                    
+                    return `
+                        <div class="result-card not-eligible">
+                            <div class="result-header">
+                                <h4>${scholarship.scholarship_name}</h4>
+                                <span class="amount">₹${(scholarship.scholarship_amount || 0).toLocaleString()}</span>
+                            </div>
+                            <p class="description">${scholarship.scholarship_description || 'No description available'}</p>
+                            ${reasonsHtml}
+                            <div class="result-footer">
+                                <div class="status-badge not-eligible-badge">✗ Not Eligible</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('studentInfo').innerHTML = `
+                <div class="error-message">
+                    <p><strong>Error:</strong> ${message}</p>
+                    <button onclick="loadResults()" class="btn btn-primary">Try Again</button>
+                </div>
+            `;
+        }
+    </script>
+    
+    <style>
+        .eligibility-reasons {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 6px;
+            background: #f0fdf4;
+            border-left: 3px solid #10b981;
+        }
+        
+        .rejection-reasons {
+            background: #fef2f2;
+            border-left: 3px solid #ef4444;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        
+        .eligibility-reasons ul, .rejection-reasons ul {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .result-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+    </style>
+</body>
+</html>
